@@ -80,6 +80,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { loadBestRecord } from '../core/brainAge.js';
 
 defineEmits(['start']);
 
@@ -102,12 +103,7 @@ async function installPWA() {
 }
 
 onMounted(() => {
-  try {
-    const saved = localStorage.getItem('brain_flip_best_record');
-    if (saved) {
-      bestRecord.value = JSON.parse(saved);
-    }
-  } catch (e) {}
+  bestRecord.value = loadBestRecord();
 
   // Detect iOS Safari
   const ua = window.navigator.userAgent;

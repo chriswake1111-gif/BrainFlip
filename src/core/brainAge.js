@@ -78,11 +78,12 @@ export function calculateBrainAge(total, correct, avgReactionTime, switchCost = 
   // 1. 防亂點防刷分機制 (Anti-Blind-Spamming Detection)
   if (acc <= 0.35) {
     const category = TOXIC_COMMENTS.SPAMMER;
+    const spamCommentIndex = (total + correct) % category.comments.length;
     return {
       score: 10,
       age: 88,
       title: category.title,
-      comment: category.comments[0],
+      comment: category.comments[spamCommentIndex],
       accuracy: Math.round(acc * 100),
       avgReactionTime: Math.round(clampedReaction),
       switchCost: Math.round(clampedSwitchCost),
@@ -118,15 +119,15 @@ export function calculateBrainAge(total, correct, avgReactionTime, switchCost = 
     age = Math.round(18 + scoreDiff * 4);
   } else if (score >= 70) {
     categoryKey = 'CORPORATE';
-    const scoreDiff = (84 - score) / 14;
+    const scoreDiff = (85 - score) / 15;
     age = Math.round(23 + scoreDiff * 12);
   } else if (score >= 50) {
     categoryKey = 'LAGGING';
-    const scoreDiff = (69 - score) / 19;
+    const scoreDiff = (70 - score) / 20;
     age = Math.round(36 + scoreDiff * 16);
   } else {
     categoryKey = 'SENIOR';
-    const scoreDiff = (49 - score) / 49;
+    const scoreDiff = (50 - score) / 50;
     age = Math.round(53 + scoreDiff * 32);
   }
 
@@ -162,4 +163,46 @@ export function calculateBrainAge(total, correct, avgReactionTime, switchCost = 
       flexibility: flexStat
     }
   };
+}
+
+const STORAGE_KEY = 'brain_flip_best_record';
+
+export function loadBestRecord() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.age === 'number' &&
+      !Number.isNaN(parsed.age) &&
+      typeof parsed.score === 'number' &&
+      !Number.isNaN(parsed.score) &&
+      typeof parsed.title === 'string'
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function saveBestRecord(brainResult) {
+  if (!brainResult || typeof brainResult.score !== 'number') return;
+  try {
+    const existing = loadBestRecord();
+    if (existing && existing.score >= brainResult.score) {
+      return;
+    }
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        age: brainResult.age,
+        score: brainResult.score,
+        title: brainResult.title,
+        date: new Date().toISOString()
+      })
+    );
+  } catch (e) {}
 }

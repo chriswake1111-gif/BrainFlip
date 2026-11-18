@@ -7,6 +7,17 @@ class SoundEngine {
   constructor() {
     this.ctx = null;
     this.isMuted = false;
+    try {
+      this.isMuted = localStorage.getItem('brain_flip_muted') === '1';
+    } catch (e) {}
+  }
+
+  toggleMute() {
+    this.isMuted = !this.isMuted;
+    try {
+      localStorage.setItem('brain_flip_muted', this.isMuted ? '1' : '0');
+    } catch (e) {}
+    return this.isMuted;
   }
 
   init() {

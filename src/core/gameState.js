@@ -21,6 +21,15 @@ export const COLOR_MAP = [
   { name: '黃色', value: '#F59E0B', class: 'color-yellow' }
 ];
 
+export function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 export function generateQuestion(stage, prevRule = null) {
   // Pick random text and color (ensure discordant for Stroop effect)
   const textObj = COLOR_MAP[Math.floor(Math.random() * COLOR_MAP.length)];
@@ -42,7 +51,7 @@ export function generateQuestion(stage, prevRule = null) {
   const isRuleSwitched = prevRule !== null && prevRule !== rule;
 
   // Shuffle button choices
-  const choices = [...COLOR_MAP].sort(() => Math.random() - 0.5);
+  const choices = shuffleArray(COLOR_MAP);
 
   return {
     displayText: textObj.name,

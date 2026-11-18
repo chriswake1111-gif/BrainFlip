@@ -1,5 +1,13 @@
 <template>
   <main class="app-root">
+    <button
+      class="mute-toggle-btn"
+      :aria-label="isMuted ? '開啟音效' : '關閉音效'"
+      @click="handleToggleMute"
+    >
+      {{ isMuted ? '🔇 靜音' : '🔊 音效' }}
+    </button>
+
     <!-- Landing State -->
     <LandingView
       v-if="currentState === GAME_STAGES.IDLE"
@@ -28,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import LandingView from './components/LandingView.vue';
 import GameArena from './components/GameArena.vue';
 import ResultCard from './components/ResultCard.vue';
@@ -39,6 +47,12 @@ import { audioEngine } from './core/audio.js';
 const currentState = ref(GAME_STAGES.IDLE);
 const countdownValue = ref(3);
 const brainResult = ref(null);
+const isMuted = ref(audioEngine.isMuted);
+let countdownTimer = null;
+
+function handleToggleMute() {
+  isMuted.value = audioEngine.toggleMute();
+}
 
 const isPlaying = computed(() => {
   return [
@@ -51,22 +65,34 @@ const isPlaying = computed(() => {
 });
 
 function startCountdown() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
   audioEngine.init();
   currentState.value = GAME_STAGES.COUNTDOWN;
   countdownValue.value = 3;
   audioEngine.playTick();
 
-  const timer = setInterval(() => {
+  countdownTimer = setInterval(() => {
     countdownValue.value--;
     if (countdownValue.value > 0) {
       audioEngine.playTick();
     } else {
-      clearInterval(timer);
+      clearInterval(countdownTimer);
+      countdownTimer = null;
       audioEngine.playCorrect();
       currentState.value = GAME_STAGES.STAGE_1;
     }
   }, 800);
 }
+
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+});
 
 function handleGameFinish(rawMetrics) {
   const calculated = calculateBrainAge(
@@ -88,6 +114,29 @@ function handleGameFinish(rawMetrics) {
   justify-content: center;
   align-items: center;
   padding: 1rem;
+  position: relative;
+}
+
+.mute-toggle-btn {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.mute-toggle-btn:active {
+  transform: scale(0.95);
 }
 
 .countdown-overlay {

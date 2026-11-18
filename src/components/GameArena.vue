@@ -86,6 +86,9 @@ const reactionTimes = ref([]);
 const switchCosts = ref([]);
 
 let timerInterval = null;
+let wrongFlashTimeout = null;
+let warningTimeout = null;
+let pendingRuleSwitch = false;
 let stageStartTime = performance.now();
 
 const remainingSeconds = computed(() => {
@@ -112,7 +115,11 @@ const stageClass = computed(() => {
 
 function nextQuestion() {
   const prevRule = currentQuestion.value ? currentQuestion.value.rule : null;
-  currentQuestion.value = generateQuestion(currentStage.value, prevRule);
+  const q = generateQuestion(currentStage.value, prevRule);
+  if (q.isRuleSwitched) {
+    pendingRuleSwitch = true;
+  }
+  currentQuestion.value = q;
 }
 
 function handleChoice(chosenName) {
@@ -123,22 +130,31 @@ function handleChoice(chosenName) {
   totalCount.value++;
 
   const isCorrect = chosenName === currentQuestion.value.correctAnswer;
+  const baselineAvgRt = reactionTimes.value.length > 0
+    ? reactionTimes.value.reduce((a, b) => a + b, 0) / reactionTimes.value.length
+    : rt;
 
   if (isCorrect) {
     correctCount.value++;
+    if (pendingRuleSwitch) {
+      const cost = Math.max(0, rt - baselineAvgRt);
+      switchCosts.value.push(cost);
+      pendingRuleSwitch = false;
+    }
     reactionTimes.value.push(rt);
     audioEngine.playCorrect();
     audioEngine.vibrate([30]);
-
-    if (currentQuestion.value.isRuleSwitched) {
-      const avgRt = reactionTimes.value.reduce((a, b) => a + b, 0) / reactionTimes.value.length;
-      const cost = Math.max(0, rt - avgRt);
-      switchCosts.value.push(cost);
-    }
   } else {
+    if (pendingRuleSwitch) {
+      switchCosts.value.push(Math.max(350, rt - baselineAvgRt + 250));
+      pendingRuleSwitch = false;
+    }
+
     isWrongFlash.value = true;
-    setTimeout(() => {
+    if (wrongFlashTimeout) clearTimeout(wrongFlashTimeout);
+    wrongFlashTimeout = setTimeout(() => {
       isWrongFlash.value = false;
+      wrongFlashTimeout = null;
     }, 250);
 
     audioEngine.playWrong();
@@ -153,8 +169,10 @@ function triggerWarning(warningConfig, callback) {
   audioEngine.playWarningSiren();
   audioEngine.vibrate([100, 50, 100, 50, 100]);
 
-  setTimeout(() => {
+  if (warningTimeout) clearTimeout(warningTimeout);
+  warningTimeout = setTimeout(() => {
     activeWarning.value = null;
+    warningTimeout = null;
     if (callback) callback();
   }, 500); // 0.5 second warning shockwave
 }
@@ -216,6 +234,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval);
+  if (wrongFlashTimeout) clearTimeout(wrongFlashTimeout);
+  if (warningTimeout) clearTimeout(warningTimeout);
 });
 </script>
 
@@ -259,6 +279,7 @@ onUnmounted(() => {
   border-radius: 999px;
   font-weight: 800;
   color: #38bdf8;
+  font-variant-numeric: tabular-nums;
 }
 
 .timer-urgent {
@@ -286,6 +307,7 @@ onUnmounted(() => {
   font-size: 0.85rem;
   color: #cbd5e1;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-bar-bg {
@@ -373,11 +395,11 @@ onUnmounted(() => {
 .choice-btn {
   height: 72px;
   border-radius: 16px;
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.25);
   font-size: 1.4rem;
   font-weight: 800;
   color: #ffffff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
   transition: transform 0.1s ease, filter 0.1s ease;

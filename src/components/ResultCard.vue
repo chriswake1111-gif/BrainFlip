@@ -88,6 +88,7 @@
 import { ref, onMounted, nextTick } from 'vue';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
+import { saveBestRecord } from '../core/brainAge.js';
 
 const props = defineProps({
   brainResult: {
@@ -220,13 +221,16 @@ function drawQRCode() {
 async function exportCardImage() {
   isExporting.value = true;
   try {
-    const dataUrl = await toPng(cardRef.value, { quality: 0.95, pixelRatio: 2 });
-    isExporting.value = false;
-    return dataUrl;
+    return await toPng(cardRef.value, { quality: 0.95, pixelRatio: 2, cacheBust: false });
   } catch (err) {
-    console.error('Failed to render card image:', err);
+    try {
+      return await toPng(cardRef.value, { quality: 0.95, pixelRatio: 2, skipFonts: true });
+    } catch (fallbackErr) {
+      console.error('Failed to render card image:', fallbackErr);
+      return null;
+    }
+  } finally {
     isExporting.value = false;
-    return null;
   }
 }
 
@@ -271,24 +275,7 @@ onMounted(async () => {
   drawQRCode();
 
   // Save record to Local-First storage
-  try {
-    const existingBest = localStorage.getItem('brain_flip_best_record');
-    let shouldSave = true;
-    if (existingBest) {
-      const parsed = JSON.parse(existingBest);
-      if (parsed.score >= props.brainResult.score) {
-        shouldSave = false;
-      }
-    }
-    if (shouldSave) {
-      localStorage.setItem('brain_flip_best_record', JSON.stringify({
-        age: props.brainResult.age,
-        score: props.brainResult.score,
-        title: props.brainResult.title,
-        date: new Date().toISOString()
-      }));
-    }
-  } catch (e) {}
+  saveBestRecord(props.brainResult);
 
   // Trigger celebration confetti
   if (props.brainResult.score >= 75) {
@@ -363,6 +350,7 @@ onMounted(async () => {
   background: linear-gradient(135deg, #f43f5e 0%, #fbbf24 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-variant-numeric: tabular-nums;
 }
 
 .age-unit {
@@ -429,6 +417,7 @@ onMounted(async () => {
   font-size: 0.95rem;
   font-weight: 800;
   color: #38bdf8;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-val small {
